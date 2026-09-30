@@ -30,7 +30,7 @@ io.on('connection', (socket) => {
     jogadores[socket.id] = {
         nome: gerarNomeAleatorio(),
         id: socket.id,
-        x: 300,
+        x: 200,
         y: 200,
         tamanho: 25,
         velocidade: 250,

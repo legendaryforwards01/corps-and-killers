@@ -41,7 +41,7 @@ const jogador = {
 
 // spawn do jogador
 let posicao = {
-    x: 300,
+    x: 200,
     y: 200
 };
 
