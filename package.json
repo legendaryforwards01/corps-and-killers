@@ -1,0 +1,25 @@
+{
+  "name": "corps-and-killers",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/legendaryforwards01/corps-and-killers.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/legendaryforwards01/corps-and-killers/issues"
+  },
+  "homepage": "https://github.com/legendaryforwards01/corps-and-killers#readme",
+  "dependencies": {
+    "express": "^5.2.1",
+    "socket.io": "^4.8.4"
+  }
+}
