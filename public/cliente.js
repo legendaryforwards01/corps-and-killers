@@ -19,7 +19,45 @@ window.addEventListener('resize', redimensionarCanvas);
 
 // imagem do mapa
 const imagemMapa = new Image();
-imagemMapa.src = "assets/pixilart-drawing.png";
+imagemMapa.src = "assets/mapa-todo-v2.png";
+
+// imagem do jogador
+const imagemJogador = new Image();
+imagemJogador.src = "assets/personagem-v2.png";
+
+// 1. objetos
+
+const mapa = {
+    largura: 2000,
+    altura: 2000
+};
+
+const jogador = {
+    tamanho: 25,
+    larguraVisual: 50,
+    alturaVisual: 130,
+    velocidade: 200,
+    cor: '#00ffcc'
+};
+
+let posicao = {
+    x: 200,
+    y: 200
+};
+
+const camera = {
+    x: 0,
+    y: 0,
+    largura: window.innerWidth,
+    altura: window.innerHeight
+};
+
+let todosJogadores = {};
+let ultimoTempo = 0;
+
+socket.on('atualizar_jogadores', (dados) => {
+    todosJogadores = dados;
+});
 
 // controle de digitação do balão
 let digitando = false;
@@ -32,64 +70,81 @@ const teclas = {
     ArrowUp: false,
     ArrowDown: false,
     ArrowLeft: false,
-    ArrowRight: false,
-    w: false,
-    a: false,
-    s: false,
-    d: false
+    ArrowRight: false
 };
 
-// objeto Jogador com tamanho, velocidade e cor
+// captura de tecla
+window.addEventListener('keydown', (evento) => {
+    // tecla 'T' ativa o modo de digitação (se tiver alguém perto)
+    if ((evento.key === "t" || evento.key === "T") && !digitando) {
+        if (alguemPerto) {
+            digitando = true;
+            textoDigitado = "";
+            evento.preventDefault();
+        }
+        return;
+    }
 
-// declaração do jogador
-const jogador = {
-    tamanho: 25,
-    velocidade: 250,
-    cor: '#00ffcc'
-};
+    // enter envia a mensagem e fecha a caixa
+    if (evento.key === "Enter") {
+        if (digitando) {
+            const mensagemLimpa = textoDigitado.trim();
+            if (mensagemLimpa !== "") {
+                socket.emit('enviar_mensagem', mensagemLimpa);
+            }
+            textoDigitado = "";
+            digitando = false;
+        }
+        return;
+    }
 
-// declaração do spawn(vai ser alterado futuramente)
-let posicao = {
-    x: 300,
-    y: 200
-};
+    // processa a digitação quando o campo está ativo
+    if (digitando) {
+        if (evento.key === "Backspace") {
+            textoDigitado = textoDigitado.slice(0, -1);
+        } else if (evento.key.length === 1 && textoDigitado.length < 60) {
+            textoDigitado += evento.key;
+        }
+        return;
+    }
 
-// tamanho e camera
-const mapa = {
-    largura: 2000,
-    altura: 2000
-};
+    // Movimentação
+    if (evento.key in teclas) {
+        teclas[evento.key] = true;
+        evento.preventDefault();
+    }
+});
 
-const camera = {
-    x: 0,
-    y: 0,
-    largura: window.innerWidth,
-    altura: window.innerHeight
-};
+window.addEventListener('keyup', (evento) => {
+    if (evento.key in teclas) {
+        teclas[evento.key] = false;
+    }
+});
 
-//lista dos jogadores que entrarem
-let todosJogadores = {};
-let ultimoTempo = 0;
+socket.on('receber_mensagem', (dados) => {
+    if (todosJogadores[dados.idJogador]) {
+        todosJogadores[dados.idJogador].ultimaMensagem = dados.texto;
+        todosJogadores[dados.idJogador].tempoMensagem = Date.now();
+    }
+});
 
+// 3. funções
 
-// 2. funções 
-
-
-// função para calcular distância entre dois jogadores
+// FUNÇÃO AUXILIAR PARA CALCULAR DISTÂNCIA
 function calcularDistancia(p1, p2) {
     const dx = p1.x - p2.x;
     const dy = p1.y - p2.y;
     return Math.sqrt(dx * dx + dy * dy);
 }
 
-// verifica se há alguem dentro do raio do chat
+// VERIFICA SE HÁ ALGUÉM DENTRO DO RAIO DE CHAT
 function verificarProximidade() {
     let perto = false;
-    for (let id in todosJogadores) {  /* passa por todos os jogadores */
-        if (id !== socket.id) {  /* checa se não é o próprio jogador */
+    for (let id in todosJogadores) {
+        if (id !== socket.id) {
             const outro = todosJogadores[id];
             const dist = calcularDistancia(posicao, outro);
-            if (dist <= raioChat) { /* se tiver perto, variavel perto se torna true */
+            if (dist <= raioChat) {
                 perto = true;
                 break;
             }
@@ -97,14 +152,13 @@ function verificarProximidade() {
     }
     alguemPerto = perto;
 
-    // se sair do raio, cancela a digitação
+    // Se se afastar de todos, cancela a digitação
     if (!alguemPerto && digitando) {
         digitando = false;
         textoDigitado = "";
     }
 }
- 
-//desenha o balão de mesnagem
+
 function desenharBalao(texto, x, y, corFundo, corTexto) {
     ctx.save();
     ctx.font = "bold 13px Arial";
@@ -155,24 +209,36 @@ function desenhar() {
         let yNaTela = player.y - camera.y;
         let tam = player.tamanho || jogador.tamanho;
 
+        let largVis = player.larguraVisual || jogador.larguraVisual || 64;
+        let altVis = player.alturaVisual || jogador.alturaVisual || 64;
+
+        // Offset para centralizar a imagem no ponto lógico (colisão/câmara)
+        let offsetX = (largVis - tam) / 2;
+        let offsetY = (altVis - tam) / 2;
+
         if (
-            xNaTela + tam > 0 && xNaTela < canvas.width &&
-            yNaTela + tam > 0 && yNaTela < canvas.height
+            xNaTela + largVis > 0 && xNaTela < canvas.width &&
+            yNaTela + altVis > 0 && yNaTela < canvas.height
         ) {
-            ctx.fillStyle = player.cor || jogador.cor;
-            ctx.fillRect(xNaTela, yNaTela, tam, tam);
+            if (imagemJogador.complete && imagemJogador.naturalWidth !== 0) {
+                ctx.drawImage(imagemJogador, xNaTela - offsetX, yNaTela - offsetY, largVis, altVis);
+            } else {
+                ctx.fillStyle = player.cor || jogador.cor;
+                ctx.fillRect(xNaTela, yNaTela, tam, tam);
+            }
 
             ctx.fillStyle = "white";
             ctx.font = "14px Arial";
             ctx.textAlign = "center";
 
             if (player.nome) {
-                ctx.fillText(player.nome, xNaTela + tam / 2, yNaTela - 8);
+                ctx.fillText(player.nome, xNaTela + tam / 2, yNaTela - offsetY - 8);
             }
 
             // Garante que o balão dura exatamente 6 segundos (6000ms) mesmo ao mover
             if (player.ultimaMensagem && (Date.now() - player.tempoMensagem < 6000)) {
-                desenharBalao(player.ultimaMensagem, xNaTela + tam / 2, yNaTela - 24, "rgba(255, 255, 255, 0.95)", "black");
+                // Alinhado acima do nome/cabeça do sprite
+                desenharBalao(player.ultimaMensagem, xNaTela + tam / 2, yNaTela - offsetY - 30, "rgba(255, 255, 255, 0.95)", "black");
             }
         }
     }
