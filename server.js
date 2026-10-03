@@ -2,6 +2,32 @@ const express = require('express');
 const app = express();
 const http = require('http').createServer(app);
 const io = require('socket.io')(http);
+const raioChat = 300;
+
+function atualizarVisibilidadeChat(){
+    const containerChat = document.getElementById("container-chat");
+    if (!containerChat){
+        return;
+    }
+    let alguemPerto = false;
+    for (let id in todosJogadores){
+        if (id !== socket.id){
+            const outrosjogadores = todosJogadores[id];
+            const dist = calcularDistancia(posicao, outrosjogadores);
+            if (dist <= raioChat){
+                alguemPerto = true;
+                break;
+            }
+        }
+    }
+
+    if(alguemPerto || document.activeElement === inputChat){
+        containerChat.style.display = "block";
+    }
+    else{
+        containerChat.style.display = "none";
+    }
+}
 
 app.use(express.static('public'));
 
@@ -24,13 +50,20 @@ function gerarNomeAleatorio(){
     return nomeSorteado;
 }
 
+// calcular distância entre os jogadores
+function calcularDistancia(p1, p2){
+    const dx = p1.x - p2.x;
+    const dy = p1.y - p2.y;
+    return Math.sqrt(dx * dx + dy * dy);
+};
+
 // cria um jogador a cada conexão no servidor
 io.on('connection', (socket) => {
     console.log(`Jogador conectado: ${socket.id}`);
     jogadores[socket.id] = {
         nome: gerarNomeAleatorio(),
         id: socket.id,
-        x: 200,
+        x: 300,
         y: 200,
         tamanho: 25,
         velocidade: 250,
@@ -48,6 +81,34 @@ io.on('connection', (socket) => {
             io.emit('atualizar_jogadores', jogadores);
         }
     });
+
+    socket.on('enviar_mensagem', (texto) => {
+        const remetente = jogadores[socket.id];
+        if (!remetente){
+            return;
+        }
+
+        const mensagemLimpa = texto.trim().substring(0, 100);
+        if (mensagemLimpa.length === 0){
+            return;
+        }
+
+        const dadosMensagem = {
+            idJogador: socket.id,
+            nomeJogador: remetente.nome,
+            texto: mensagemLimpa,
+            timestamp: Date.now()
+        }
+
+        for (let id in jogadores){
+            const destinatario = jogadores[id];
+            const dist = calcularDistancia(remetente, destinatario);
+
+            if (dist <= raioChat){
+                io.to(id).emit('receber_mensagem', dadosMensagem);
+            }
+        }
+    })
 
     // atualiza desconexões
     socket.on('disconnect', () => {

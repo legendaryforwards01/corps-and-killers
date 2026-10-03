@@ -12,9 +12,69 @@ function redimensionarCanvas(){
 redimensionarCanvas();
 window.addEventListener('resize', redimensionarCanvas);
 
+const raioChat = 300;
+
+function calcularDistancia(p1, p2) {
+    const dx = p1.x - p2.x;
+    const dy = p1.y - p2.y;
+    return Math.sqrt(dx * dx + dy * dy);
+}
+
+function atualizarVisibilidadeChat(){
+    const containerChat = document.getElementById("container-chat");
+    if (!containerChat){
+        return;
+    }
+    let alguemPerto = false;
+    for (let id in todosJogadores){
+        if (id !== socket.id){
+            const outrosjogadores = todosJogadores[id];
+            const dist = calcularDistancia(posicao, outrosjogadores);
+            if (dist <= raioChat){
+                alguemPerto = true;
+                break;
+            }
+        }
+    }
+
+    if(alguemPerto || document.activeElement === inputChat){
+        containerChat.style.display = "block";
+    }
+    else{
+        containerChat.style.display = "none";
+    }
+}
+
 // imagem do mapa
 const imagemMapa = new Image();
 imagemMapa.src = "assets/mapa.jpg";
+
+const inputChat = document.getElementById("input-chat");
+const historicoChat = document.getElementById("historico-chat");
+
+window.addEventListener('keydown', (evento) => {
+    if (evento.key === "Enter"){
+        if (document.activeElement === inputChat){
+            if (inputChat.value.trim() !== ""){
+                socket.emit('enviar_mensagem', inputChat.value);
+                inputChat.value = "";
+            }
+            inputChat.blur();
+        }
+        else{
+            inputChat.focus();
+            evento.preventDefault();
+        };
+    };
+});
+
+socket.on('receber_mensagem', (dados) => {
+    const msgElemento = document.createElement("div");
+    const nomeExibicao = (dados.idJogador === socket.id) ? "Eu": dados.nomeJogador;
+    msgElemento.innerHTML = `<strong>${nomeExibicao}</strong>: ${dados.texto}`;
+    historicoChat.appendChild(msgElemento);
+    historicoChat.scrollTop = historicoChat.scrollHeight
+});
 
 // 1. objetos
 
@@ -41,7 +101,7 @@ const jogador = {
 
 // spawn do jogador
 let posicao = {
-    x: 200,
+    x: 300,
     y: 200
 };
 
@@ -174,6 +234,7 @@ function update(tempoAtual) {
 
     moverJogador(deltaTime);
     atualizarCamera();
+    atualizarVisibilidadeChat();
     desenhar();
 
     requestAnimationFrame(update); // roda a função a cada frame

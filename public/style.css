@@ -14,3 +14,29 @@ html, body {
     overflow: hidden; /* esconde barras de rolagem */
 }
 
+#container-chat {
+    position: absolute;
+    left: 20px;
+    bottom: 20px;
+    width: 300px;
+    background: rgba(0, 0, 0, 0.6);
+    border-radius: 8px;
+    padding: 10px;
+    color: white;
+    font-family: Arial, Helvetica, sans-serif;
+}
+
+#historico-chat {
+    max-height: 150px;
+    margin-bottom: 8px;
+    overflow-y: auto;
+    font-size: 13px;
+}
+
+#input-chat {
+        width: 100%;
+        padding: 6px;
+        border: none;
+        border-radius: 4px;
+        outline: none;
+}
