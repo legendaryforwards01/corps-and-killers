@@ -224,8 +224,8 @@ function moverJogador(dt) {
 
     if (moveu) {
         socket.emit('movimento', posicao);
-    }
-}
+    };
+};
 
  //atualizar posição da câmera
 function atualizarCamera() {
