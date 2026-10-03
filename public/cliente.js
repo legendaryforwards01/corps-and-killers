@@ -170,6 +170,7 @@ function desenhar() {
                 ctx.fillText(player.nome, xNaTela + tam / 2, yNaTela - 8);
             }
 
+            // Garante que o balão dura exatamente 6 segundos (6000ms) mesmo ao mover
             if (player.ultimaMensagem && (Date.now() - player.tempoMensagem < 6000)) {
                 desenharBalao(player.ultimaMensagem, xNaTela + tam / 2, yNaTela - 24, "rgba(255, 255, 255, 0.95)", "black");
             }
@@ -204,29 +205,25 @@ function moverJogador(dt) {
     let moveu = false;
     const vel = jogador.velocidade * dt; //velocidade ficar igual independente de onde estiver rodando
 
-    if (teclas.ArrowUp && posicao.y > 0 || teclas.w && posicao.y > 0) {
+    if ((teclas.ArrowUp || teclas.w) && posicao.y > 0) {
         posicao.y -= vel;
         moveu = true;
     }
-    if (teclas.ArrowDown && posicao.y + jogador.tamanho < mapa.altura || teclas.s && posicao.y + jogador.tamanho < mapa.altura) {
+    if ((teclas.ArrowDown || teclas.s) && posicao.y + jogador.tamanho < mapa.altura) {
         posicao.y += vel;
         moveu = true;
     }
-    if (teclas.ArrowLeft && posicao.x > 0 || teclas.a && posicao.x > 0) {
+    if ((teclas.ArrowLeft || teclas.a) && posicao.x > 0) {
         posicao.x -= vel;
         moveu = true;
     }
-    if (teclas.ArrowRight && posicao.x + jogador.tamanho < mapa.largura || teclas.d && posicao.x + jogador.tamanho < mapa.largura) {
+    if ((teclas.ArrowRight || teclas.d) && posicao.x + jogador.tamanho < mapa.largura) {
         posicao.x += vel;
         moveu = true;
     }
 
     if (moveu) {
         socket.emit('movimento', posicao);
-    }
-        jogador.tamanho = 30;
-    else {
-        jogador.tamanho = 25;
     }
 }
 
@@ -298,8 +295,14 @@ socket.on('receber_mensagem', (dados) => {
     }
 });
 
-//atualiza dados do jogador
+//atualiza dados do jogador preservando as mensagens anteriores
 socket.on('atualizar_jogadores', (dados) => {
+    for (let id in dados) {
+        if (todosJogadores[id]) {
+            dados[id].ultimaMensagem = todosJogadores[id].ultimaMensagem;
+            dados[id].tempoMensagem = todosJogadores[id].tempoMensagem;
+        }
+    }
     todosJogadores = dados;
 });
 
