@@ -14,7 +14,7 @@ window.addEventListener('resize', redimensionarCanvas);
 
 // imagem do mapa
 const imagemMapa = new Image();
-imagemMapa.src = "assets/mapa.jpg";
+imagemMapa.src = "assets/pixilart-drawing.png";
 
 // CONTROLE DE DIGITAÇÃO E BALÃO NO CANVAS
 let digitando = false;
@@ -27,14 +27,20 @@ const teclas = {
     ArrowUp: false,
     ArrowDown: false,
     ArrowLeft: false,
-    ArrowRight: false
+    ArrowRight: false,
+    w: false,
+    a: false,
+    s: false,
+    d: false
 };
-
+// objeto Jogador com tamanho, velocidade e cor
 const jogador = {
     tamanho: 25,
     velocidade: 250,
     cor: '#00ffcc'
 };
+
+
 
 let posicao = {
     x: 300,
@@ -247,25 +253,30 @@ function moverJogador(dt) {
     let moveu = false;
     const vel = jogador.velocidade * dt;
 
-    if (teclas.ArrowUp && posicao.y > 0) {
+    if (teclas.ArrowUp && posicao.y > 0 || teclas.w && posicao.y > 0) {
         posicao.y -= vel;
         moveu = true;
     }
-    if (teclas.ArrowDown && posicao.y + jogador.tamanho < mapa.altura) {
+    if (teclas.ArrowDown && posicao.y + jogador.tamanho < mapa.altura || teclas.s && posicao.y + jogador.tamanho < mapa.altura) {
         posicao.y += vel;
         moveu = true;
     }
-    if (teclas.ArrowLeft && posicao.x > 0) {
+    if (teclas.ArrowLeft && posicao.x > 0 || teclas.a && posicao.x > 0) {
         posicao.x -= vel;
         moveu = true;
     }
-    if (teclas.ArrowRight && posicao.x + jogador.tamanho < mapa.largura) {
+    if (teclas.ArrowRight && posicao.x + jogador.tamanho < mapa.largura || teclas.d && posicao.x + jogador.tamanho < mapa.largura) {
         posicao.x += vel;
         moveu = true;
     }
 
     if (moveu) {
         socket.emit('movimento', posicao);
+    }
+        jogador.tamanho = 30;
+    }
+    else {
+        jogador.tamanho = 25;
     }
 }
 
