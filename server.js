@@ -4,31 +4,6 @@ const http = require('http').createServer(app);
 const io = require('socket.io')(http);
 const raioChat = 300;
 
-function atualizarVisibilidadeChat(){
-    const containerChat = document.getElementById("container-chat");
-    if (!containerChat){
-        return;
-    }
-    let alguemPerto = false;
-    for (let id in todosJogadores){
-        if (id !== socket.id){
-            const outrosjogadores = todosJogadores[id];
-            const dist = calcularDistancia(posicao, outrosjogadores);
-            if (dist <= raioChat){
-                alguemPerto = true;
-                break;
-            }
-        }
-    }
-
-    if(alguemPerto || document.activeElement === inputChat){
-        containerChat.style.display = "block";
-    }
-    else{
-        containerChat.style.display = "none";
-    }
-}
-
 app.use(express.static('public'));
 
 // lista de jogadores logados no server
@@ -95,7 +70,6 @@ io.on('connection', (socket) => {
 
         const dadosMensagem = {
             idJogador: socket.id,
-            nomeJogador: remetente.nome,
             texto: mensagemLimpa,
             timestamp: Date.now()
         }
