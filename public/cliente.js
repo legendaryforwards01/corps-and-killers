@@ -231,9 +231,6 @@ function desenhar() {
             ctx.font = "14px Arial";
             ctx.textAlign = "center";
 
-            if (player.nome) {
-                ctx.fillText(player.nome, xNaTela + tam / 2, yNaTela - offsetY - 8);
-            }
 
             // Garante que o balão dura exatamente 6 segundos (6000ms) mesmo ao mover
             if (player.ultimaMensagem && (Date.now() - player.tempoMensagem < 6000)) {
