@@ -14,7 +14,45 @@ window.addEventListener('resize', redimensionarCanvas);
 
 // imagem do mapa
 const imagemMapa = new Image();
-imagemMapa.src = "assets/mapa.jpg";
+imagemMapa.src = "assets/mapa-todo-v2.png";
+
+// imagem do jogador
+const imagemJogador = new Image();
+imagemJogador.src = "assets/personagem-v2.png";
+
+// 1. objetos
+
+const mapa = {
+    largura: 2000,
+    altura: 2000
+};
+
+const jogador = {
+    tamanho: 25,
+    larguraVisual: 50,
+    alturaVisual: 130,
+    velocidade: 200,
+    cor: '#00ffcc'
+};
+
+let posicao = {
+    x: 200,
+    y: 200
+};
+
+const camera = {
+    x: 0,
+    y: 0,
+    largura: window.innerWidth,
+    altura: window.innerHeight
+};
+
+let todosJogadores = {};
+let ultimoTempo = 0;
+
+socket.on('atualizar_jogadores', (dados) => {
+    todosJogadores = dados;
+});
 
 // CONTROLE DE DIGITAÇÃO E BALÃO NO CANVAS
 let digitando = false;
@@ -29,46 +67,6 @@ const teclas = {
     ArrowLeft: false,
     ArrowRight: false
 };
-
-const jogador = {
-    tamanho: 25,
-    velocidade: 250,
-    cor: '#00ffcc'
-};
-
-let posicao = {
-    x: 300,
-    y: 200
-};
-
-// FUNÇÃO AUXILIAR PARA CALCULAR DISTÂNCIA
-function calcularDistancia(p1, p2) {
-    const dx = p1.x - p2.x;
-    const dy = p1.y - p2.y;
-    return Math.sqrt(dx * dx + dy * dy);
-}
-
-// VERIFICA SE HÁ ALGUÉM DENTRO DO RAIO DE CHAT
-function verificarProximidade() {
-    let perto = false;
-    for (let id in todosJogadores) {
-        if (id !== socket.id) {
-            const outro = todosJogadores[id];
-            const dist = calcularDistancia(posicao, outro);
-            if (dist <= raioChat) {
-                perto = true;
-                break;
-            }
-        }
-    }
-    alguemPerto = perto;
-
-    // Se se afastar de todos, cancela a digitação
-    if (!alguemPerto && digitando) {
-        digitando = false;
-        textoDigitado = "";
-    }
-}
 
 // captura de tecla
 window.addEventListener('keydown', (evento) => {
@@ -125,28 +123,36 @@ socket.on('receber_mensagem', (dados) => {
     }
 });
 
-// 1. objetos
-
-const mapa = {
-    largura: 2000,
-    altura: 2000
-};
-
-const camera = {
-    x: 0,
-    y: 0,
-    largura: window.innerWidth,
-    altura: window.innerHeight
-};
-
-let todosJogadores = {};
-let ultimoTempo = 0;
-
-socket.on('atualizar_jogadores', (dados) => {
-    todosJogadores = dados;
-});
-
 // 3. funções
+
+// FUNÇÃO AUXILIAR PARA CALCULAR DISTÂNCIA
+function calcularDistancia(p1, p2) {
+    const dx = p1.x - p2.x;
+    const dy = p1.y - p2.y;
+    return Math.sqrt(dx * dx + dy * dy);
+}
+
+// VERIFICA SE HÁ ALGUÉM DENTRO DO RAIO DE CHAT
+function verificarProximidade() {
+    let perto = false;
+    for (let id in todosJogadores) {
+        if (id !== socket.id) {
+            const outro = todosJogadores[id];
+            const dist = calcularDistancia(posicao, outro);
+            if (dist <= raioChat) {
+                perto = true;
+                break;
+            }
+        }
+    }
+    alguemPerto = perto;
+
+    // Se se afastar de todos, cancela a digitação
+    if (!alguemPerto && digitando) {
+        digitando = false;
+        textoDigitado = "";
+    }
+}
 
 function desenharBalao(texto, x, y, corFundo, corTexto) {
     ctx.save();
@@ -198,23 +204,35 @@ function desenhar() {
         let yNaTela = player.y - camera.y;
         let tam = player.tamanho || jogador.tamanho;
 
+        let largVis = player.larguraVisual || jogador.larguraVisual || 64;
+        let altVis = player.alturaVisual || jogador.alturaVisual || 64;
+
+        // Offset para centralizar a imagem no ponto lógico (colisão/câmara)
+        let offsetX = (largVis - tam) / 2;
+        let offsetY = (altVis - tam) / 2;
+
         if (
-            xNaTela + tam > 0 && xNaTela < canvas.width &&
-            yNaTela + tam > 0 && yNaTela < canvas.height
+            xNaTela + largVis > 0 && xNaTela < canvas.width &&
+            yNaTela + altVis > 0 && yNaTela < canvas.height
         ) {
-            ctx.fillStyle = player.cor || jogador.cor;
-            ctx.fillRect(xNaTela, yNaTela, tam, tam);
+            if (imagemJogador.complete && imagemJogador.naturalWidth !== 0) {
+                ctx.drawImage(imagemJogador, xNaTela - offsetX, yNaTela - offsetY, largVis, altVis);
+            } else {
+                ctx.fillStyle = player.cor || jogador.cor;
+                ctx.fillRect(xNaTela, yNaTela, tam, tam);
+            }
 
             ctx.fillStyle = "white";
             ctx.font = "14px Arial";
             ctx.textAlign = "center";
 
             if (player.nome) {
-                ctx.fillText(player.nome, xNaTela + tam / 2, yNaTela - 8);
+                ctx.fillText(player.nome, xNaTela + tam / 2, yNaTela - offsetY - 8);
             }
 
             if (player.ultimaMensagem && (Date.now() - player.tempoMensagem < 6000)) {
-                desenharBalao(player.ultimaMensagem, xNaTela + tam / 2, yNaTela - 24, "rgba(255, 255, 255, 0.95)", "black");
+                // Alinhado acima do nome/cabeça do sprite
+                desenharBalao(player.ultimaMensagem, xNaTela + tam / 2, yNaTela - offsetY - 30, "rgba(255, 255, 255, 0.95)", "black");
             }
         }
     }
