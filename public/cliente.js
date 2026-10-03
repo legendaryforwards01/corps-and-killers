@@ -223,12 +223,9 @@ function moverJogador(dt) {
 
     if (moveu) {
         socket.emit('movimento', posicao);
-    }
-        jogador.tamanho = 30;
-    else {
-        jogador.tamanho = 25;
-    }
-}
+    };
+
+};
 
  //atualizar posição da câmera
 function atualizarCamera() {
