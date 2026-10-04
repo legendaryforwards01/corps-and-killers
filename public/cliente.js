@@ -55,10 +55,6 @@ const camera = {
 let todosJogadores = {};
 let ultimoTempo = 0;
 
-socket.on('atualizar_jogadores', (dados) => {
-    todosJogadores = dados;
-});
-
 // controle de digitação do balão
 let digitando = false;
 let textoDigitado = "";
@@ -70,56 +66,14 @@ const teclas = {
     ArrowUp: false,
     ArrowDown: false,
     ArrowLeft: false,
-    ArrowRight: false
+    ArrowRight: false,
+    w: false,
+    a: false,
+    s: false,
+    d: false
 };
 
-// captura de tecla
-window.addEventListener('keydown', (evento) => {
-    // tecla 'T' ativa o modo de digitação (se tiver alguém perto)
-    if ((evento.key === "t" || evento.key === "T") && !digitando) {
-        if (alguemPerto) {
-            digitando = true;
-            textoDigitado = "";
-            evento.preventDefault();
-        }
-        return;
-    }
-
-    // enter envia a mensagem e fecha a caixa
-    if (evento.key === "Enter") {
-        if (digitando) {
-            const mensagemLimpa = textoDigitado.trim();
-            if (mensagemLimpa !== "") {
-                socket.emit('enviar_mensagem', mensagemLimpa);
-            }
-            textoDigitado = "";
-            digitando = false;
-        }
-        return;
-    }
-
-    // processa a digitação quando o campo está ativo
-    if (digitando) {
-        if (evento.key === "Backspace") {
-            textoDigitado = textoDigitado.slice(0, -1);
-        } else if (evento.key.length === 1 && textoDigitado.length < 60) {
-            textoDigitado += evento.key;
-        }
-        return;
-    }
-
-    // Movimentação
-    if (evento.key in teclas) {
-        teclas[evento.key] = true;
-        evento.preventDefault();
-    }
-});
-
-window.addEventListener('keyup', (evento) => {
-    if (evento.key in teclas) {
-        teclas[evento.key] = false;
-    }
-});
+// 2. socket & eventos de rede
 
 socket.on('receber_mensagem', (dados) => {
     if (todosJogadores[dados.idJogador]) {
@@ -128,16 +82,26 @@ socket.on('receber_mensagem', (dados) => {
     }
 });
 
+// atualiza dados do jogador preservando as mensagens anteriores
+socket.on('atualizar_jogadores', (dados) => {
+    for (let id in dados) {
+        if (todosJogadores[id]) {
+            dados[id].ultimaMensagem = todosJogadores[id].ultimaMensagem;
+            dados[id].tempoMensagem = todosJogadores[id].tempoMensagem;
+        }
+    }
+    todosJogadores = dados;
+});
+
+
 // 3. funções
 
-// FUNÇÃO AUXILIAR PARA CALCULAR DISTÂNCIA
 function calcularDistancia(p1, p2) {
     const dx = p1.x - p2.x;
     const dy = p1.y - p2.y;
     return Math.sqrt(dx * dx + dy * dy);
 }
 
-// VERIFICA SE HÁ ALGUÉM DENTRO DO RAIO DE CHAT
 function verificarProximidade() {
     let perto = false;
     for (let id in todosJogadores) {
@@ -171,7 +135,7 @@ function desenharBalao(texto, x, y, corFundo, corTexto) {
 
     ctx.fillStyle = corFundo;
     ctx.beginPath();
-    if (ctx.roundRect) { //cria o retangulo meio circular
+    if (ctx.roundRect) {
         ctx.roundRect(posX, posY, larguraBalao, alturaBalao, 6);
     } else {
         ctx.rect(posX, posY, larguraBalao, alturaBalao);
@@ -189,9 +153,9 @@ function desenharBalao(texto, x, y, corFundo, corTexto) {
 }
 
 function desenhar() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height); //limpar o jogador para desenhar no novo lugar
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    if (imagemMapa.complete && imagemMapa.naturalWidth !== 0) { //rodar um mapa temporario enquanto carrega
+    if (imagemMapa.complete && imagemMapa.naturalWidth !== 0) {
         ctx.drawImage(imagemMapa, 0 - camera.x, 0 - camera.y, mapa.largura, mapa.altura);
     } else {
         ctx.fillStyle = "#2e5a1c";
@@ -212,7 +176,7 @@ function desenhar() {
         let largVis = player.larguraVisual || jogador.larguraVisual || 64;
         let altVis = player.alturaVisual || jogador.alturaVisual || 64;
 
-        // Offset para centralizar a imagem no ponto lógico (colisão/câmara)
+        // Offset para centralizar a imagem no ponto lógico
         let offsetX = (largVis - tam) / 2;
         let offsetY = (altVis - tam) / 2;
 
@@ -231,19 +195,19 @@ function desenhar() {
             ctx.font = "14px Arial";
             ctx.textAlign = "center";
 
-
-            // Garante que o balão dura exatamente 6 segundos (6000ms) mesmo ao mover
+            // Posição do balão alinhada logo acima do nome/cabeça
             if (player.ultimaMensagem && (Date.now() - player.tempoMensagem < 6000)) {
-                // Alinhado acima do nome/cabeça do sprite
-                desenharBalao(player.ultimaMensagem, xNaTela + tam / 2, yNaTela - offsetY - 30, "rgba(255, 255, 255, 0.95)", "black");
+                desenharBalao(player.ultimaMensagem, xNaTela + tam / 2, yNaTela - offsetY - 28, "rgba(255, 255, 255, 0.95)", "black");
             }
         }
     }
 
-    // caixa de digitação flutuante quando o jogador apertar t
+    // caixa de digitação do próprio jogador acima da cabeça
     if (digitando) {
+        let altVis = jogador.alturaVisual;
+        let offsetY = (altVis - jogador.tamanho) / 2;
         let meuXNaTela = posicao.x - camera.x + jogador.tamanho / 2;
-        let meuYNaTela = posicao.y - camera.y - 24;
+        let meuYNaTela = posicao.y - camera.y - offsetY - 10;
         const textoExibido = textoDigitado.length === 0 ? "Digite sua mensagem..." : textoDigitado;
         desenharBalao(textoExibido, meuXNaTela, meuYNaTela, "rgba(255, 235, 59, 0.95)", "black");
     }
@@ -253,7 +217,7 @@ function desenhar() {
         ctx.save();
         ctx.font = "bold 15px Arial";
         ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
-        ctx.fillRect(15, canvas.height - 45, 250, 30); // fundo escuro do aviso
+        ctx.fillRect(15, canvas.height - 45, 250, 30);
         ctx.fillStyle = "#ffffff";
         ctx.textAlign = "left";
         ctx.textBaseline = "middle";
@@ -263,10 +227,10 @@ function desenhar() {
 }
 
 function moverJogador(dt) {
-    if (digitando) return; // trava movimentação enquanto escreve a mensagem
+    if (digitando) return;
 
     let moveu = false;
-    const vel = jogador.velocidade * dt; //velocidade ficar igual independente de onde estiver rodando
+    const vel = jogador.velocidade * dt;
 
     if ((teclas.ArrowUp || teclas.w) && posicao.y > 0) {
         posicao.y -= vel;
@@ -287,10 +251,9 @@ function moverJogador(dt) {
 
     if (moveu) {
         socket.emit('movimento', posicao);
-    };
-};
+    }
+}
 
- //atualizar posição da câmera
 function atualizarCamera() {
     camera.x = posicao.x - canvas.width / 2 + jogador.tamanho / 2;
     camera.y = posicao.y - canvas.height / 2 + jogador.tamanho / 2;
@@ -300,11 +263,11 @@ function atualizarCamera() {
 }
 
 
-// 3. captura de teclas 
+// 4. captura de teclas 
 
 
 window.addEventListener('keydown', (evento) => {
-    // tecla T ativa o modo de digitação (se tiver alguém perto e não ja estiver digitando)
+    // Tecla T ativa o chat se houver alguém perto
     if ((evento.key === "t" || evento.key === "T") && !digitando) {
         if (alguemPerto) {
             digitando = true;
@@ -314,7 +277,7 @@ window.addEventListener('keydown', (evento) => {
         return;
     }
 
-    // enter envia a mensagem e fecha a caixa
+    // Enter envia a mensagem
     if (evento.key === "Enter") {
         if (digitando) {
             const mensagemLimpa = textoDigitado.trim();
@@ -327,7 +290,7 @@ window.addEventListener('keydown', (evento) => {
         return;
     }
 
-    // se apertar backspace exclui o ultimo caractere
+    // Processa digitação quando está com chat aberto
     if (digitando) {
         if (evento.key === "Backspace") {
             textoDigitado = textoDigitado.slice(0, -1);
@@ -337,54 +300,35 @@ window.addEventListener('keydown', (evento) => {
         return;
     }
 
+    // Teclas de movimentação
     if (evento.key in teclas) {
         teclas[evento.key] = true;
         evento.preventDefault();
     }
 });
 
-// se para de pressionar tal tecla, ela para
 window.addEventListener('keyup', (evento) => {
     if (evento.key in teclas) {
         teclas[evento.key] = false;
     }
 });
 
-//dados para o jogador que recebe a mensagem
-socket.on('receber_mensagem', (dados) => {
-    if (todosJogadores[dados.idJogador]) {
-        todosJogadores[dados.idJogador].ultimaMensagem = dados.texto;
-        todosJogadores[dados.idJogador].tempoMensagem = Date.now();
-    }
-});
 
-//atualiza dados do jogador preservando as mensagens anteriores
-socket.on('atualizar_jogadores', (dados) => {
-    for (let id in dados) {
-        if (todosJogadores[id]) {
-            dados[id].ultimaMensagem = todosJogadores[id].ultimaMensagem;
-            dados[id].tempoMensagem = todosJogadores[id].tempoMensagem;
-        }
-    }
-    todosJogadores = dados;
-});
-
-// 4. loop
+// 5. loop principal
 
 function update(tempoAtual) {
-    if(!ultimoTempo){ //proporção para velocidade ser a mesma independente de onde estiver rodando
+    if(!ultimoTempo){
         ultimoTempo = tempoAtual;
     }
     const deltaTime = (tempoAtual - ultimoTempo) / 1000;
     ultimoTempo = tempoAtual;
 
-    verificarProximidade(); //checar se pode conversar
-    moverJogador(deltaTime); //mover jogador correspondentemente 
-    atualizarCamera(); //atualizar posição da câmera
-    desenhar();//desenhar o jogador
+    verificarProximidade();
+    moverJogador(deltaTime);
+    atualizarCamera();
+    desenhar();
 
-    requestAnimationFrame(update);//rodar a 60 fps
+    requestAnimationFrame(update);
 }
 
-//entrar no loop da função update
 requestAnimationFrame(update);
