@@ -197,7 +197,7 @@ function desenhar() {
 
             // Posição do balão alinhada logo acima do nome/cabeça
             if (player.ultimaMensagem && (Date.now() - player.tempoMensagem < 6000)) {
-                desenharBalao(player.ultimaMensagem, xNaTela + tam / 2, yNaTela - offsetY - 28, "rgba(255, 255, 255, 0.95)", "black");
+                desenharBalao(player.ultimaMensagem, xNaTela + tam / 2, yNaTela - offsetY + 10, "rgba(255, 255, 255, 0.95)", "black");
             }
         }
     }
@@ -207,7 +207,7 @@ function desenhar() {
         let altVis = jogador.alturaVisual;
         let offsetY = (altVis - jogador.tamanho) / 2;
         let meuXNaTela = posicao.x - camera.x + jogador.tamanho / 2;
-        let meuYNaTela = posicao.y - camera.y - offsetY - 10;
+        let meuYNaTela = posicao.y - camera.y - offsetY + 10;
         const textoExibido = textoDigitado.length === 0 ? "Digite sua mensagem..." : textoDigitado;
         desenharBalao(textoExibido, meuXNaTela, meuYNaTela, "rgba(255, 235, 59, 0.95)", "black");
     }
