@@ -202,6 +202,15 @@ function desenhar() {
         }
     }
 
+    if (todosJogadores[socket.id]){
+        ctx.save();
+        ctx.font = "bold 16px Arial";
+        ctx.fillStyle = "yellow";
+        ctx.textAlign = "left";
+        ctx.fillText("Função: " + todosJogadores[socket.id].funcao, 20, 30);
+        ctx.restore();
+    };
+
     // caixa de digitação do próprio jogador acima da cabeça
     if (digitando) {
         let altVis = jogador.alturaVisual;
@@ -312,6 +321,10 @@ window.addEventListener('keyup', (evento) => {
         teclas[evento.key] = false;
     }
 });
+
+socket.on('sala_cheia', (mensagem) => {
+    alert(mensagem);
+})
 
 
 // 5. loop principal

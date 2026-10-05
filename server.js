@@ -9,12 +9,31 @@ app.use(express.static('public'));
 // lista de jogadores logados no server
 let jogadores = {};
 
+const max_jogadores = 12;
+
 const nomesPossiveis = [
     ['Maçã', 'Banana', 'Uva', 'Pêssego', 'Morango', 'Kiwi', 'Manga', 'Abacaxi', 'Pêra', 'Abacate', 'Melancia', 'Goiaba'],
     ['Vermelho', 'Amarelo', 'Verde', 'Rosa', 'Roxo', 'Azul', 'Branco', 'Preto', 'Cinza', 'Laranja', 'Bege', 'Ciano'],
     ['China', 'Rússia', 'ìndia', 'Austrália', 'Alemanha', 'Japão', 'México', 'Argentina', 'Brasil', 'Espanha', 'Itália', 'França'],
     ['Cachorro', 'Gato', 'Leão', 'Elefante', 'Girafa', 'Macaco', 'Cavalo', 'Cobra', 'Vaca', 'Porco', 'Peixe', 'Ovelha']
 ]
+function funcoesLista(){
+    return['Empresário', 'Empresário','Empresário', 'Empresário','Empresário', 'Empresário','Empresário', 'Empresário','Empresário',
+            'Patrão', 'Enfermeiro', 'Detetive'];
+
+}
+
+let funcoesDisponiveis = funcoesLista();
+
+function embaralhar(array){
+    for (let i = array.length - 1; i > 0; i--){
+        const j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
+    };
+    return(array);
+}
+
+funcoesDisponiveis = embaralhar(funcoesDisponiveis); 
 
 // pega uma lista aleatória dentro das opções
 const listaSorteada = nomesPossiveis[Math.floor(Math.random() * nomesPossiveis.length)];
@@ -32,9 +51,20 @@ function calcularDistancia(p1, p2){
     return Math.sqrt(dx * dx + dy * dy);
 };
 
+
 // cria um jogador a cada conexão no servidor
 io.on('connection', (socket) => {
-    console.log(`Jogador conectado: ${socket.id}`);
+    if (Object.keys(jogadores).length >= max_jogadores){
+        console.log(`Conexão recusada: Sala cheia ${socket.id}`);
+        socket.emit('sala_cheia', 'A sala já atingiu o máximo de 12 jogadores. ');
+        socket.disconnect(true);
+        return;
+    }
+
+    const funcaoAtribuida = funcoesDisponiveis.pop() || 'Empresário';
+
+    console.log(`Jogador conectado ${socket.id} || Função: ${funcaoAtribuida}`)
+
     jogadores[socket.id] = {
         nome: gerarNomeAleatorio(),
         id: socket.id,
@@ -44,7 +74,8 @@ io.on('connection', (socket) => {
         larguraVisual: 50,
         alturaVisual: 130,
         velocidade: 200,
-        cor: '#00ffcc'
+        cor: '#00ffcc',
+        funcao: funcaoAtribuida
     };
 
     // atualiza a quantidade de jogadores
@@ -89,6 +120,10 @@ io.on('connection', (socket) => {
     // atualiza desconexões
     socket.on('disconnect', () => {
         console.log(`Jogador desconectado: ${socket.id}`);
+        if (jogadores[socket.id]){
+            funcoesDisponiveis.push(jogadores[socket.id].funcao);
+            funcoesDisponiveis = embaralhar(funcoesDisponiveis);
+        }
         delete jogadores[socket.id];
         io.emit('atualizar_jogadores', jogadores);
     });
