@@ -1,7 +1,6 @@
 const socket = io();
-// 0. tela
 
-// cria a tela do jogo
+// 0. tela
 const canvas = document.getElementById("meuCanvas");  
 const ctx = canvas.getContext("2d");
 
@@ -9,23 +8,15 @@ function redimensionarCanvas(){
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
 }
-// fixa a tela do jogo em toda a tela disponível
 redimensionarCanvas();
 window.addEventListener('resize', redimensionarCanvas);
 
-
 // 1. declarações
-
-
-// imagem do mapa
 const imagemMapa = new Image();
 imagemMapa.src = "assets/mapa-todo-v2.png";
 
-// imagem do jogador
 const imagemJogador = new Image();
 imagemJogador.src = "assets/personagem-v2.png";
-
-// 1. objetos
 
 const mapa = {
     largura: 2000,
@@ -55,13 +46,17 @@ const camera = {
 let todosJogadores = {};
 let ultimoTempo = 0;
 
+// estado do poder do patrão
+let poderPatraoUsado = false;
+let idAlvoPatrao = null;
+
 // controle de digitação do balão
 let digitando = false;
 let textoDigitado = "";
 let alguemPerto = false;
 const raioChat = 300;
 
-//declaração das teclas 
+// declaração das teclas 
 const teclas = {
     ArrowUp: false,
     ArrowDown: false,
@@ -82,7 +77,6 @@ socket.on('receber_mensagem', (dados) => {
     }
 });
 
-// atualiza dados do jogador preservando as mensagens anteriores
 socket.on('atualizar_jogadores', (dados) => {
     for (let id in dados) {
         if (todosJogadores[id]) {
@@ -93,6 +87,14 @@ socket.on('atualizar_jogadores', (dados) => {
     todosJogadores = dados;
 });
 
+socket.on('sala_cheia', (mensagem) => {
+    alert(mensagem);
+});
+
+socket.on('voce_morreu', (mensagem) => {
+    alert(mensagem);
+    window.location.reload();
+});
 
 // 3. funções
 
@@ -116,13 +118,37 @@ function verificarProximidade() {
     }
     alguemPerto = perto;
 
-    // Se se afastar de todos, cancela a digitação
     if (!alguemPerto && digitando) {
         digitando = false;
         textoDigitado = "";
     }
 }
 
+// busca o alvo mais próximo pro Patrão
+function buscarAlvoPatrao() {
+    const meuJogador = todosJogadores[socket.id];
+    if (!meuJogador || meuJogador.funcao !== 'Patrão' || poderPatraoUsado) {
+        idAlvoPatrao = null;
+        return;
+    }
+
+    let menorDistancia = Infinity;
+    let alvoEncontrado = null;
+
+    for (let id in todosJogadores) {
+        if (id !== socket.id) {
+            const dist = calcularDistancia(posicao, todosJogadores[id]);
+            if (dist <= raioChat && dist < menorDistancia) {
+                menorDistancia = dist;
+                alvoEncontrado = id;
+            }
+        }
+    }
+
+    idAlvoPatrao = alvoEncontrado;
+}
+
+// desenha o balão de fala
 function desenharBalao(texto, x, y, corFundo, corTexto) {
     ctx.save();
     ctx.font = "bold 13px Arial";
@@ -152,9 +178,11 @@ function desenharBalao(texto, x, y, corFundo, corTexto) {
     ctx.restore();
 }
 
+// desenha tudo no canvas
 function desenhar() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+    // desenha o mapa
     if (imagemMapa.complete && imagemMapa.naturalWidth !== 0) {
         ctx.drawImage(imagemMapa, 0 - camera.x, 0 - camera.y, mapa.largura, mapa.altura);
     } else {
@@ -166,6 +194,7 @@ function desenhar() {
     ctx.lineWidth = 5;
     ctx.strokeRect(0 - camera.x, 0 - camera.y, mapa.largura, mapa.altura);
 
+    // desenha os jogadores
     for (let id in todosJogadores) {
         let player = todosJogadores[id];
 
@@ -176,7 +205,6 @@ function desenhar() {
         let largVis = player.larguraVisual || jogador.larguraVisual || 64;
         let altVis = player.alturaVisual || jogador.alturaVisual || 64;
 
-        // Offset para centralizar a imagem no ponto lógico
         let offsetX = (largVis - tam) / 2;
         let offsetY = (altVis - tam) / 2;
 
@@ -184,6 +212,15 @@ function desenhar() {
             xNaTela + largVis > 0 && xNaTela < canvas.width &&
             yNaTela + altVis > 0 && yNaTela < canvas.height
         ) {
+            ctx.save();
+
+            // sombra vermelha no alvo do Patrão
+            if (id === idAlvoPatrao) {
+                ctx.shadowColor = "red";
+                ctx.shadowBlur = 20;
+            }
+
+            // desenha o personagem
             if (imagemJogador.complete && imagemJogador.naturalWidth !== 0) {
                 ctx.drawImage(imagemJogador, xNaTela - offsetX, yNaTela - offsetY, largVis, altVis);
             } else {
@@ -191,37 +228,42 @@ function desenhar() {
                 ctx.fillRect(xNaTela, yNaTela, tam, tam);
             }
 
-            ctx.fillStyle = "white";
-            ctx.font = "14px Arial";
-            ctx.textAlign = "center";
+            ctx.restore();
 
-            // Posição do balão alinhada logo acima do nome/cabeça
+            // balão de mensagem
             if (player.ultimaMensagem && (Date.now() - player.tempoMensagem < 6000)) {
-                desenharBalao(player.ultimaMensagem, xNaTela + tam / 2, yNaTela - offsetY + 10, "rgba(255, 255, 255, 0.95)", "black");
+                desenharBalao(player.ultimaMensagem, xNaTela + tam / 2, yNaTela - offsetY - 10, "rgba(255, 255, 255, 0.95)", "black");
             }
         }
     }
 
+    // exibe a função e o status do poder na tela
     if (todosJogadores[socket.id]){
         ctx.save();
         ctx.font = "bold 16px Arial";
         ctx.fillStyle = "yellow";
         ctx.textAlign = "left";
         ctx.fillText("Função: " + todosJogadores[socket.id].funcao, 20, 30);
-        ctx.restore();
-    };
 
-    // caixa de digitação do próprio jogador acima da cabeça
+        if (todosJogadores[socket.id].funcao === 'Patrão') {
+            ctx.fillStyle = poderPatraoUsado ? "gray" : "#ff4444";
+            const statusPoder = poderPatraoUsado ? "Poder Usado" : "Poder Disponível (Aperte Q para Eliminar)";
+            ctx.fillText(statusPoder, 20, 55);
+        }
+        ctx.restore();
+    }
+
+    // caixa de digitação no chat
     if (digitando) {
         let altVis = jogador.alturaVisual;
         let offsetY = (altVis - jogador.tamanho) / 2;
         let meuXNaTela = posicao.x - camera.x + jogador.tamanho / 2;
-        let meuYNaTela = posicao.y - camera.y - offsetY + 10;
+        let meuYNaTela = posicao.y - camera.y - offsetY - 10;
         const textoExibido = textoDigitado.length === 0 ? "Digite sua mensagem..." : textoDigitado;
         desenharBalao(textoExibido, meuXNaTela, meuYNaTela, "rgba(255, 235, 59, 0.95)", "black");
     }
 
-    // aviso no canto 
+    // aviso para conversar
     if (alguemPerto && !digitando) {
         ctx.save();
         ctx.font = "bold 15px Arial";
@@ -235,6 +277,7 @@ function desenhar() {
     }
 }
 
+// movimenta o jogador
 function moverJogador(dt) {
     if (digitando) return;
 
@@ -263,6 +306,7 @@ function moverJogador(dt) {
     }
 }
 
+// atualiza a posição da câmera
 function atualizarCamera() {
     camera.x = posicao.x - canvas.width / 2 + jogador.tamanho / 2;
     camera.y = posicao.y - canvas.height / 2 + jogador.tamanho / 2;
@@ -271,12 +315,20 @@ function atualizarCamera() {
     camera.y = Math.max(0, Math.min(camera.y, mapa.altura - canvas.height));
 }
 
-
 // 4. captura de teclas 
-
-
 window.addEventListener('keydown', (evento) => {
-    // Tecla T ativa o chat se houver alguém perto
+    // usa poder do patrão
+    if ((evento.key === "q" || evento.key === "Q") && !digitando) {
+        const meuJogador = todosJogadores[socket.id];
+        if (meuJogador && meuJogador.funcao === 'Patrão' && !poderPatraoUsado && idAlvoPatrao) {
+            socket.emit('eliminar_jogador', { idAlvo: idAlvoPatrao });
+            poderPatraoUsado = true;
+            idAlvoPatrao = null;
+        }
+        return;
+    }
+
+    // abre o chat
     if ((evento.key === "t" || evento.key === "T") && !digitando) {
         if (alguemPerto) {
             digitando = true;
@@ -286,7 +338,7 @@ window.addEventListener('keydown', (evento) => {
         return;
     }
 
-    // Enter envia a mensagem
+    // envia mensagem
     if (evento.key === "Enter") {
         if (digitando) {
             const mensagemLimpa = textoDigitado.trim();
@@ -299,7 +351,7 @@ window.addEventListener('keydown', (evento) => {
         return;
     }
 
-    // Processa digitação quando está com chat aberto
+    // digita no chat
     if (digitando) {
         if (evento.key === "Backspace") {
             textoDigitado = textoDigitado.slice(0, -1);
@@ -309,7 +361,6 @@ window.addEventListener('keydown', (evento) => {
         return;
     }
 
-    // Teclas de movimentação
     if (evento.key in teclas) {
         teclas[evento.key] = true;
         evento.preventDefault();
@@ -322,13 +373,7 @@ window.addEventListener('keyup', (evento) => {
     }
 });
 
-socket.on('sala_cheia', (mensagem) => {
-    alert(mensagem);
-})
-
-
 // 5. loop principal
-
 function update(tempoAtual) {
     if(!ultimoTempo){
         ultimoTempo = tempoAtual;
@@ -337,6 +382,7 @@ function update(tempoAtual) {
     ultimoTempo = tempoAtual;
 
     verificarProximidade();
+    buscarAlvoPatrao();
     moverJogador(deltaTime);
     atualizarCamera();
     desenhar();
